@@ -13,6 +13,10 @@ FileManager* FileManager::getInstance() {
 
 int FileManager::openFile(string pathStr) {
     // Set file path
+    this->path = pathStr;
+    if (fin.is_open()) {
+        fin.close();
+    }
     fin.open(pathStr);
 
     // Open input file stream
@@ -20,15 +24,18 @@ int FileManager::openFile(string pathStr) {
         return errno;
     }
     this->readContents();
+    fin.close();
     return 0;
 }
 
+// TODO: check (마지막 개행 이슈)
 void FileManager::readContents() {
     // Move file pointer to eof
     fin.seekg(0, std::ios::end);
 
     // read file size (string length)
     this->fileSize = fin.tellg();
+    this->contents.erase();
     this->contents.resize(fileSize);
 
     // Move file pointer to the beginning of file
@@ -46,12 +53,17 @@ string FileManager::getContents() {
 bool FileManager::updateCurrentFile(string target, string replacement) {
     // Open output file stream (with overwrite mode)
     fout.open(path, std::ios::trunc);
-    if (!fout.is_open()) {
+    if (!fout) {
         return false;
     }
 
     // Replace target strings from contents
-    string updatedStr = contents.replace(contents.find(target), target.length(), replacement);
+    size_t position = contents.find(target);
+    string updatedStr;
+    while (position != string::npos && target != replacement) {
+        updatedStr = contents.replace(position, target.length(), replacement);
+        position = contents.find(target);
+    }
 
     // Write changes to the file
     fout << updatedStr << endl;
@@ -73,20 +85,19 @@ bool FileManager::insertCurrentFile(string input) {
         return false;
     }
 
-    // Insert input to the contents loaded on memory
-    contents.append("\n");
-    contents.append(input);
-
     // Write changes to the file
-    fout << endl;
-    fout << input << endl;
+    fout << "\n" << input;
 
     // Close output file stream
     fout.close();
+
+    // Re-open inserted file
+    this->openFile(path);
     return true;
 }
 
 void FileManager::closeFile() {
-    // Close input file stream
+    // Close file stream
+    fin.close();
     fout.close();
 }
